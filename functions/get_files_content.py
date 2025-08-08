@@ -18,8 +18,8 @@ def get_file_content(working_directory, file_path):
     except Exception as e:
         return f"Error reading file: {e}"
     
-schema_get_files_content = types.FunctionDeclaration(
-    name="get_files_content",
+schema_get_file_content = types.FunctionDeclaration(
+    name="get_file_content",
     description="Read the content of a file constrained to the working directory. The content is truncated at 10000 Characters",
     parameters=types.Schema(
         type=types.Type.OBJECT,
