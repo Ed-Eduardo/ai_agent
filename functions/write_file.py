@@ -29,7 +29,7 @@ schema_write_file = types.FunctionDeclaration(
     parameters=types.Schema(
         type=types.Type.OBJECT,
         properties={
-            "filepath": types.Schema(
+            "file_path": types.Schema(
                 type=types.Type.STRING, 
                 description="The filepath to the new file, or the file that needs to be overwritten"
             ),
