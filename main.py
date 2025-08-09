@@ -40,6 +40,40 @@ available_functions = types.Tool(
     ]
 )
 
+functions_dict = {
+    "get_files_info": get_files_info,
+    "get_file_content": get_file_content,
+    "write_file": write_file,
+    "run_python_file": run_python_file,
+}
+
+def call_function(function_call_part: types.FunctionCall, verbose=False) -> types.Content:
+    if verbose == True:
+        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+    else:
+        print(f" - Calling function: {function_call_part.name}")
+    try:
+        function_results = functions_dict[function_call_part.name](working_directory="./calculator", **function_call_part.args)
+    except KeyError:
+        return types.Content(
+            role="tool",
+            parts=[
+            types.Part.from_function_response(
+                name=function_call_part.name,
+                response={"error": f"Unknown function: {function_call_part.name}"},
+                )
+            ],
+        )
+    return types.Content(
+        role="tool",
+        parts=[
+            types.Part.from_function_response(
+                name=function_call_part.name,
+                response={"result": function_results},
+            )
+        ],
+    )
+
 client = genai.Client(api_key=api_key)
 
 response = client.models.generate_content(
@@ -50,13 +84,28 @@ response = client.models.generate_content(
         system_instruction=system_prompt
     )
 ) 
+
+is_verbose = False
 if num_arguments > 2 and sys.argv[2] == "--verbose":
-    print(response.text)
-    print(f"User prompt: {user_prompt}")
-    print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
-    print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
-else: 
-    if response.function_calls:
-        print(f"Calling function: {response.function_calls[0].name}({response.function_calls[0].args})") #TODO This will print the wrong info if more than one function is ran 
-    else:
-        print(response.text)
+    is_verbose = True
+
+output = []
+if response.function_calls:
+    for call in response.function_calls:
+        function_call_result= call_function(call, verbose=is_verbose)
+        if not function_call_result.parts[0].function_response.response:
+            raise Exception(f"Fatal error: Something went wrong while running {call.name}")
+        else:
+            if is_verbose:
+                output.append(f"-> {function_call_result.parts[0].function_response.response}")
+else:
+    if response.text:
+        output.append(response.text)
+
+if is_verbose:
+    output.extend([
+        f"User prompt: {user_prompt}",
+        f"Prompt tokens: {response.usage_metadata.prompt_token_count}",
+        f"Response tokens: {response.usage_metadata.candidates_token_count}"
+    ])
+print(f"{'\n'.join(output).replace('\\n', '\n')}")
