@@ -19,6 +19,9 @@ When a user asks a question or makes a request, make a function call plan. You c
 - Write or overwrite files
 
 All paths you provide should be relative to the working directory. You do not need to specify the working directory in your function calls as it is automatically injected for security reasons.
+
+Before ovewriting a file, create a backup file
+If the user asks to debug a behaviour of a program, check all the files of the project and do not create new files.
 """
 
 num_arguments = len(sys.argv)
