@@ -28,9 +28,14 @@ if num_arguments < 2:
 load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
 user_prompt = sys.argv[1]
+is_verbose = False
+if num_arguments > 2 and sys.argv[2] == "--verbose":
+    is_verbose = True
+
 messages = [
     types.Content(role="user", parts=[types.Part(text=user_prompt)]),
 ]
+
 available_functions = types.Tool(
     function_declarations=[
         schema_get_files_info,
@@ -76,31 +81,39 @@ def call_function(function_call_part: types.FunctionCall, verbose=False) -> type
 
 client = genai.Client(api_key=api_key)
 
-response = client.models.generate_content(
-    model='gemini-2.0-flash-001', 
-    contents=messages, 
-    config=types.GenerateContentConfig(
-        tools=[available_functions], 
-        system_instruction=system_prompt
-    )
-) 
+for i in range(21):
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.0-flash-001', 
+            contents=messages, 
+            config=types.GenerateContentConfig(
+                tools=[available_functions], 
+                system_instruction=system_prompt
+            )
+        ) 
 
-is_verbose = False
-if num_arguments > 2 and sys.argv[2] == "--verbose":
-    is_verbose = True
+        for candidate in response.candidates:
+            messages.append(candidate.content)
 
-output = []
-if response.function_calls:
-    for call in response.function_calls:
-        function_call_result= call_function(call, verbose=is_verbose)
-        if not function_call_result.parts[0].function_response.response:
-            raise Exception(f"Fatal error: Something went wrong while running {call.name}")
+        output = []
+        if response.function_calls:
+            for call in response.function_calls:
+                function_call_result= call_function(call, verbose=is_verbose)
+                if not function_call_result.parts[0].function_response.response:
+                    raise Exception(f"Fatal error: Something went wrong while running {call.name}")
+                else:
+                    messages.append(function_call_result)
+                    if is_verbose:
+                        output.append(f"-> {function_call_result.parts[0].function_response.response}")
         else:
-            if is_verbose:
-                output.append(f"-> {function_call_result.parts[0].function_response.response}")
-else:
-    if response.text:
-        output.append(response.text)
+            if response.text:
+                output.append(f"Final response:\n{response.text}")
+                break
+    except Exception as e:
+        print(f"Error while reasoning: {e}")
+
+if i >= 20:
+    output.append("Entered infinite loop, stopped at the 20th attempt")
 
 if is_verbose:
     output.extend([
